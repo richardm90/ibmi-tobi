@@ -73,7 +73,6 @@ FILE_TARGETGROUPS_MAPPING = {
     "SYSTRG": "TRG",
     "SQLPRC": "SQL",
     "TABLE": "SQL",
-    "PFSQL": "SQL",
     "VIEW": "SQL",
     "INDEX": "SQL",
     "SQLSEQ": "SQL",
@@ -81,6 +80,7 @@ FILE_TARGETGROUPS_MAPPING = {
     "SQLTRG": "SQL",
     "MSGF": "MSG",
     "WSCSTSRC": "WSCST",
+    "RMRUNSQL": "SQL",
 }
 
 TARGET_TARGETGROUPS_MAPPING = {
@@ -140,7 +140,6 @@ FILE_TARGET_MAPPING = {
     "SYSTRG": "PGM",
     "SQLPRC": "PGM",
     "TABLE": "FILE",
-    "PFSQL": "FILE",
     "VIEW": "FILE",
     "INDEX": "FILE",
     "SQLSEQ": "DTAARA",
@@ -148,6 +147,7 @@ FILE_TARGET_MAPPING = {
     "SQLTRG": "PGM",
     "MSGF": "MSGF",
     "WSCSTSRC": "WSCST",
+    "RMRUNSQL": "FILE",
 }
 # This is the maximum number of dot seperated parts in the file extensions defined above.
 FILE_MAX_EXT_LENGTH = max(
@@ -171,7 +171,7 @@ C_STYLE_COMMENTS = (
 )
 
 SQL_STYLE_COMMENTS = (
-    {"TABLE", "PFSQL", "VIEW", "SQLUDT", "SQLALIAS", "SQLSEQ", "SQLPRC", "SQLTRG", "SQLUDF", "SQL", "INDEX"},
+    {"TABLE", "VIEW", "SQLUDT", "SQLALIAS", "SQLSEQ", "SQLPRC", "SQLTRG", "SQLUDF", "SQL", "INDEX", "RMRUNSQL"},
     {
         "style_type": "SQL",
         "start_comment": "--",

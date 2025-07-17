@@ -65,11 +65,13 @@ class MKRule:
                     ['\t' + cmd + '\n' for cmd in self.commands]) + variable_assignment
         try:
             target_type = self.target.split(".")[-1].upper()
+            source_type = decompose_filename(self.source_file)[2].upper()
             if target_type in ("SQL", "MSGF"):
                 recipe_name = f"{target_type}_RECIPE"
+            elif source_type in ("RMRUNSQL"):
+                recipe_name = f"RMRUNSQL_RECIPE"
             else:
-                recipe_name = decompose_filename(self.source_file)[2].upper() + '_TO_' + self.target.split(".")[
-                    -1].upper() + '_RECIPE'
+                recipe_name = source_type + '_TO_' + self.target.split(".")[-1].upper() + '_RECIPE'
             return f"{self.target}_SRC={self.source_file}" + '\n' + f"{self.target}_DEP" \
                                                                     f"={' '.join(self.dependencies)}" + '\n' + \
                 f"{self.target}_RECIPE={recipe_name}" + '\n' + variable_assignment
