@@ -2,7 +2,9 @@ import os
 import pytest
 from pathlib import Path
 from makei.build import BuildEnv
+from makei.const import TARGET_TARGETGROUPS_MAPPING
 from makei.rules_mk import RulesMk
+from makei.utils import escape_special_chars
 from tests.lib.const import DATA_PATH
 
 # Tests for BuildEnv._check_target_needs_rebuild, which only runs for # or $ named
@@ -123,6 +125,62 @@ def test_object_dependency_resolves_under_objlib(set_test_directory, tmp_path):
         build_env = BuildEnv()
         rule = get_rule(test_dir, "S#DATE.PGM")
         assert build_env._check_target_needs_rebuild(rule, objlib_path) is True
+    finally:
+        if build_env:
+            build_env._post_make()
+
+
+@pytest.mark.parametrize("target", [
+    "S#SRVPGM.BNDDIR",
+    "S#ORDERS.DTAQ",
+    "S#LASTORD.DTAARA",
+    "S#MSGS.MSGF",
+    "S#CMD.CMD",
+])
+@pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
+def test_pseudo_src_transitive_dependency_key_is_the_target_itself(set_test_directory, target):
+    # The transitive dependency loop in _create_build_vars uses the same extension based
+    # test that _check_target_needs_rebuild used to, so for a pseudo-source it treats the
+    # IFS source as an object dependency. It then looks the source up in the
+    # special_char_files dict by escaped name, which for a pseudo-source is the target's
+    # own key, and only acts when that entry is True. The loop skips targets already
+    # marked True before reaching that point, so the branch can never fire and the
+    # extension test is harmless here. This test pins the self reference down.
+    test_dir = set_test_directory
+    rule = get_rule(test_dir, target)
+
+    try:
+        build_env = BuildEnv()
+        source_file = build_env._unescape_special_chars(rule.source_file.replace('$(d)/', ''))
+        escaped_dependency = build_env._escape_special_chars_internal(source_file)
+        escaped_target = escape_special_chars(rule.target)
+
+        # The extension names an object type, so the loop's branch is entered ...
+        assert source_file.upper().split('.')[-1] in TARGET_TARGETGROUPS_MAPPING
+        # ... but the dependency it looks up is the target itself.
+        assert escaped_dependency == escaped_target
+    finally:
+        if build_env:
+            build_env._post_make()
+
+
+@pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
+def test_object_dependency_transitive_key_is_the_dependency(set_test_directory):
+    # By contrast a real object dependency resolves to a different key, so the transitive
+    # loop can genuinely mark S\#DATE.PGM for rebuild when S\#DATE.MODULE is rebuilt. The
+    # extension based test is correct here, which is why it was left in place.
+    test_dir = set_test_directory
+    rule = get_rule(test_dir, "S#DATE.PGM")
+
+    try:
+        build_env = BuildEnv()
+        source_file = build_env._unescape_special_chars(rule.source_file.replace('$(d)/', ''))
+        escaped_dependency = build_env._escape_special_chars_internal(source_file)
+        escaped_target = escape_special_chars(rule.target)
+
+        assert source_file.upper().split('.')[-1] in TARGET_TARGETGROUPS_MAPPING
+        assert escaped_dependency != escaped_target
+        assert escaped_dependency == "SHASHESCAPE_DATE.MODULE"
     finally:
         if build_env:
             build_env._post_make()
