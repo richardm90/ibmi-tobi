@@ -10,10 +10,15 @@ define escape_specials
 $(subst DOLLARESCAPE_,$$$$$$$,$(subst HASHESCAPE_,\#,$(1)))
 endef
 
-# Escape specials for source and dependency, but preserve HASHESCAPE_ and DOLLARESCAPE_ for object dependencies in OBJECT_TARGET_PATTERNS
+# Escape specials for source and dependency, but preserve HASHESCAPE_ and DOLLARESCAPE_ for object dependencies
 # Object dependencies should keep their escaped form (HASHESCAPE_, DOLLARESCAPE_) to match target names
+#
+# A source that is a file carries the $(d)/ directory prefix, so it is unescaped for make
+# to find it on disk. Anything else names an object and keeps its escaped form. The source's
+# extension cannot be used to tell the two apart: a pseudo-source recipe reads its source
+# from a file whose extension names an object type, e.g. S\#CMD.CMD: S\#CMD.CMD
 define escape_source
-$(if $(filter %.CMD %.FILE %.MENU %.MODULE %.PGM %.PNLGRP %.QMQRY %.SRVPGM %.TRG %.WSCST,$(1)),$(1),$(call escape_specials,$(1)))
+$(if $(filter $(d)/%,$(1)),$(call escape_specials,$(1)),$(1))
 endef
 
 ifdef TARGETS
