@@ -7,20 +7,21 @@ from tests.lib.const import MAKEI_PATH
 
 # Tests for escape_source in src/mk/footer.mk.
 #
-# Python emits a target's source as either an IFS path carrying the $(d)/ directory
-# prefix, or a bare object name for a target built from another object:
+# Python emits what a target is built from as either a path carrying the $(d)/ directory
+# prefix, or a bare object name:
 #
-#   SHASHESCAPE_CMD.CMD_SRC=$(d)/SHASHESCAPE_CMD.CMD     an IFS file
-#   SHASHESCAPE_DATE.PGM_SRC=SHASHESCAPE_DATE.MODULE     a built object
+#   SHASHESCAPE_CMD.CMD_SRC=$(d)/SHASHESCAPE_CMD.CMD     a source directory file
+#   SHASHESCAPE_DATE.PGM_SRC=SHASHESCAPE_DATE.MODULE     an object in the library
 #
-# escape_source decides whether to turn HASHESCAPE_ back into \# for make. An IFS path
-# must be unescaped so make can find the file on disk; an object name must keep its
-# escaped form so it matches the target name Python generated for it.
+# escape_source decides whether to turn HASHESCAPE_ back into \# for make. A path must be
+# unescaped so make can find the file on disk; an object name must keep its escaped form
+# so it matches the target name Python generated for it.
 #
-# The decision is made on the source's extension, and a pseudo-source recipe reads its
-# source from an IFS file whose extension names an object type, so a #-named CMD
-# pseudo-source is wrongly treated as an object and left escaped. Make then looks for a
-# literal SHASHESCAPE_CMD.CMD file, does not find it, and the target is skipped.
+# The decision used to be made on the extension, which a pseudo-source recipe defeats:
+# those read their source from a source directory file whose extension names an object
+# type, so a #-named CMD pseudo-source was treated as an object and left escaped. Make
+# then looked for a literal SHASHESCAPE_CMD.CMD file, did not find it, and skipped the
+# target - silently, reporting "0 failed 0 succeed 0 total" and "All targets up-to-date".
 
 FOOTER_MK = MAKEI_PATH / "src" / "mk" / "footer.mk"
 
@@ -61,21 +62,21 @@ def call_escape_source(tmp_path: Path, value: str) -> str:
     ("$(d)/SHASHESCAPE_MSGS.MSGF", "QCMDSRC/S\\#MSGS.MSGF"),
 ])
 def test_pseudo_src_path_is_unescaped(tmp_path, source, expected):
-    # A pseudo-source is an IFS file, so make has to be given the real file name. The
-    # CMD case fails: its extension names an object type, so it is left escaped and make
-    # looks for a file called SHASHESCAPE_CMD.CMD that does not exist.
+    # A pseudo-source is a source directory file, so make has to be given the real file
+    # name. All five extensions name an object type, which is what made the CMD case go
+    # wrong while the other four happened to work.
     assert call_escape_source(tmp_path, source) == expected
 
 
 def test_ordinary_source_path_is_unescaped(tmp_path):
-    # The ordinary compile path, unaffected by the bug.
+    # The ordinary compile path, where the extension does not name an object type.
     assert call_escape_source(
         tmp_path, "$(d)/SHASHESCAPE_HELLO.PGM.RPGLE") == "QCMDSRC/S\\#HELLO.PGM.RPGLE"
 
 
 def test_object_source_keeps_its_escaped_form(tmp_path):
-    # A target built from another object names that object with no $(d)/ prefix. It has
-    # to keep the escaped form so that it matches the target name Python generated, and
-    # a fix must not unescape it.
+    # A target built from another object names that object with no $(d)/ prefix, and has
+    # to keep the escaped form so that it matches the target name Python generated for
+    # that object.
     assert call_escape_source(
         tmp_path, "SHASHESCAPE_DATE.MODULE") == "SHASHESCAPE_DATE.MODULE"
