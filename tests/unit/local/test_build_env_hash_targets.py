@@ -8,23 +8,23 @@ from makei.utils import escape_special_chars
 from tests.lib.const import DATA_PATH
 
 # Tests for BuildEnv._check_target_needs_rebuild, which only runs for # or $ named
-# targets. It decides whether a target is stale by comparing the source's timestamp
-# against the built object's, and locates the source from its extension: an extension
-# naming an object type is assumed to be an already built object and is looked for in
-# the object library, otherwise the source is looked for in the source directory.
+# targets. It decides whether a target is stale by comparing what the target is built
+# from against the built object, so it first has to work out where that input lives.
 #
-# That is right for a recipe whose source really is a built object, such as
+# A target can be built from another object, which is in the object library:
 #
 #   S\#DATE.PGM: S\#DATE.MODULE
 #
-# but wrong for a pseudo-source recipe, which reads its source from an IFS file whose
-# extension happens to name an object type
+# or from a file, which is in the source directory:
 #
 #   S\#SRVPGM.BNDDIR: S\#SRVPGM.BNDDIR
 #
-# Here the source resolves onto the object itself, so the check asks whether the object
-# is newer than itself. That is never true, so the object is built once and then never
-# rebuilt from source. Affects BNDDIR, CMD, DTAARA, DTAQ and MSGF.
+# It used to tell the two apart by the input's extension, which is wrong for a
+# pseudo-source recipe: those read their source from a source directory file whose
+# extension names an object type, so the source resolved onto the object itself and the
+# check asked whether the object was newer than itself. That is never true, so the object
+# was built once and then never rebuilt from source. It affected BNDDIR, CMD, DTAARA,
+# DTAQ and MSGF.
 
 
 @pytest.fixture
@@ -89,8 +89,8 @@ def test_pseudo_src_rebuilds_when_source_is_newer(set_test_directory, target, tm
 ])
 @pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
 def test_pseudo_src_up_to_date_when_source_is_older(set_test_directory, target, tmp_path):
-    # An untouched pseudo-source must leave its object alone, so that a fix does not
-    # over correct into always rebuilding.
+    # An untouched pseudo-source must leave its object alone. The counterpart to the test
+    # above: resolving the source correctly must not turn into rebuilding unconditionally.
     test_dir = set_test_directory
     objlib_path = tmp_path / "OBJLIB.LIB"
     objlib_path.mkdir()
@@ -109,9 +109,9 @@ def test_pseudo_src_up_to_date_when_source_is_older(set_test_directory, target, 
 
 @pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
 def test_object_dependency_resolves_under_objlib(set_test_directory, tmp_path):
-    # S\#DATE.PGM: S\#DATE.MODULE depends on a built MODULE, not an IFS file, so a newly
-    # recompiled MODULE must mark the PGM for rebuild. This is the case the object
-    # library lookup exists to serve and a fix must keep working.
+    # S\#DATE.PGM: S\#DATE.MODULE is built from a MODULE object in the library rather than
+    # from a source directory file, so a newly recompiled MODULE must mark the PGM for
+    # rebuild. This is the case the object library lookup exists to serve.
     test_dir = set_test_directory
     objlib_path = tmp_path / "OBJLIB.LIB"
     objlib_path.mkdir()
@@ -139,13 +139,15 @@ def test_object_dependency_resolves_under_objlib(set_test_directory, tmp_path):
 ])
 @pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
 def test_pseudo_src_transitive_dependency_key_is_the_target_itself(set_test_directory, target):
-    # The transitive dependency loop in _create_build_vars uses the same extension based
-    # test that _check_target_needs_rebuild used to, so for a pseudo-source it treats the
-    # IFS source as an object dependency. It then looks the source up in the
-    # special_char_files dict by escaped name, which for a pseudo-source is the target's
-    # own key, and only acts when that entry is True. The loop skips targets already
-    # marked True before reaching that point, so the branch can never fire and the
-    # extension test is harmless here. This test pins the self reference down.
+    # The transitive dependency loop in _create_build_vars marks a target for rebuild when
+    # the object it is built from is itself being rebuilt. It decides whether that input
+    # is an object by its extension, so a pseudo-source, whose source is a source
+    # directory file with an object type extension, is treated as one.
+    #
+    # That does nothing here. The loop looks the input up in special_char_files by escaped
+    # name, which for a pseudo-source is the target's own key, and only acts when that
+    # entry is True - but targets already marked True are skipped before the lookup is
+    # reached. So the branch can never fire for a pseudo-source.
     test_dir = set_test_directory
     rule = get_rule(test_dir, target)
 
@@ -166,9 +168,9 @@ def test_pseudo_src_transitive_dependency_key_is_the_target_itself(set_test_dire
 
 @pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
 def test_object_dependency_transitive_key_is_the_dependency(set_test_directory):
-    # By contrast a real object dependency resolves to a different key, so the transitive
-    # loop can genuinely mark S\#DATE.PGM for rebuild when S\#DATE.MODULE is rebuilt. The
-    # extension based test is correct here, which is why it was left in place.
+    # A target built from a real object resolves to a different key, so the lookup finds
+    # another target's entry and the loop does what it is for: S\#DATE.PGM is marked for
+    # rebuild when S\#DATE.MODULE is.
     test_dir = set_test_directory
     rule = get_rule(test_dir, "S#DATE.PGM")
 
@@ -188,9 +190,8 @@ def test_object_dependency_transitive_key_is_the_dependency(set_test_directory):
 
 @pytest.mark.parametrize("set_test_directory", ["hash_project"], indirect=True)
 def test_ordinary_source_resolves_under_source_dir(set_test_directory, tmp_path):
-    # S\#HELLO.PGM: S\#HELLO.PGM.RPGLE is the ordinary compile path, where the extension
-    # does not name an object type. It is unaffected by the pseudo-source bug and a fix
-    # must keep it working.
+    # S\#HELLO.PGM: S\#HELLO.PGM.RPGLE is the ordinary compile path: a target built from a
+    # source file whose extension does not name an object type.
     test_dir = set_test_directory
     objlib_path = tmp_path / "OBJLIB.LIB"
     objlib_path.mkdir()

@@ -150,11 +150,11 @@ class BuildEnv:
         source_str = self._unescape_special_chars(rule.source_file.replace('$(d)/', '', 1))
         target_unescaped = self._unescape_special_chars(rule.target)
         target_path = objlib_path / target_unescaped
-        # Determine source path (QSYS for objects, source dir for files).
-        # Use the rule's own is_source_file flag rather than inferring from the source's
-        # extension. Pseudo-source recipes such as BNDDIR, CMD, DTAARA, DTAQ and MSGF read
-        # their source from a file whose extension names an object type, so inferring from
-        # the extension resolves the source onto the target object itself.
+        # Determine source path (QSYS for objects, source dir for files), using the rule's
+        # own is_source_file flag rather than the source's extension. Pseudo-source recipes
+        # such as BNDDIR, CMD, DTAARA, DTAQ and MSGF read their source from a file whose
+        # extension names an object type, so inferring from the extension resolves the
+        # source onto the target object itself.
         source_path = (Path(source_str) if Path(source_str).is_absolute()
                        else rule.containing_dir / source_str if rule.is_source_file
                        else objlib_path / source_str)
